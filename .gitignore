@@ -1,0 +1,10 @@
+# super secret things
+credentials.js
+
+# the best editor in the world
+*.swp
+*.swo
+*.swn
+
+# just node things
+node_modules/
