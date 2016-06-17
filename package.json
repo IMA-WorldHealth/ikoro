@@ -1,6 +1,6 @@
 {
   "name": "ikoro",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A small script to check if websites are available from behind a firewall actively blocking them.",
   "main": "index.js",
   "dependencies": {
@@ -10,7 +10,7 @@
   "devDependencies": {},
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "server" : "node index.js"
+    "start" : "node index.js"
   },
   "author": "jniles",
   "license": "MIT"

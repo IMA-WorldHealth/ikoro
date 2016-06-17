@@ -6,5 +6,8 @@ credentials.js
 *.swo
 *.swn
 
+# super secret logs
+*.log
+
 # just node things
 node_modules/

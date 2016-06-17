@@ -3,36 +3,17 @@
 
 const request = require('request');
 const credentials = require('./credentials');
-const twilio = require('twilio')(credentials.sid, credentials.token);
 
+// libraries
 const Heartbeat = require('./lib/Heartbeat');
+const Logger = require('./lib/Logger');
+const SMS = require('./lib/SMS');
 
 // global constants
 const OFFLINE = 'offline';
 const AVAILABLE = 'available';
 const UNAVAILABLE = 'unavailable';
 const THRESHOLD = 70; // threshold to trigger SMS
-const DELIMITER = '\t'; // tab-delimited output for readability
-
-function send(url, body) {
-  const date = new Date();
-
-  const message = {
-    to: credentials.sms.target,
-    from: credentials.sms.sender,
-    body
-  };
-
-  console.log(`[SMS] ${message.body}`);
-
-  /*
-  // send the SMS
-  twilio.sendMessage(message, (err, res) => {
-    if (err) { return console.error(err); }
-    console.log(`[SMS] ${message.body}.`);
-  });
- */
-}
 
 // take a measurement.
 function indicator(status) {
@@ -41,16 +22,20 @@ function indicator(status) {
 
 // takes in f - frequency in seconds
 function Main(f) {
+  console.log('Starting Main Server.');
+
   const url = credentials.url.trim();
   const ms = 1000;
 
-  console.log('Starting Main Server.');
+  const logger = new Logger({ verbose: true });
+  const sms = new SMS({ verbose: true, maxMessages: 2 });
+
+  // the heartbeat of the application
+  const pulse = new Heartbeat(200);
 
   // the polling and timeout intervales
   const frequency = f*ms;
 
-  // the heartbeat of the application
-  const pulse = new Heartbeat(200);
 
   // statistics array, to be used for storing results of queries
   const stats = [];
@@ -71,7 +56,7 @@ function Main(f) {
     let errored = err || res.statusCode !== 200;
 
     // an error occurred in reaching the address, and the site was
-    // previous accessible, send an SMS of this event.
+    // previous accessible, record the site as unavailable
     if (errored) {
       stats.push(indicator(UNAVAILABLE));
     } else {
@@ -109,31 +94,27 @@ function Main(f) {
     let min = cp[0].timestamp;
     let max = cp[cp.length-1].timestamp;
 
+    let offlineRate = (offline / cp.length)*100;
     let failureRate = (failures / cp.length)*100;
     let successRate = (success / cp.length)*100;
-    let offlineRate = (offline / cp.length)*100;
 
-    // log line
-    let line =
-      `${min.toLocaleTimeString()} - ${max.toLocaleTimeString()}${DELIMITER}` +
-      `${url}${DELIMITER}` +
-      `${cp.length}${DELIMITER}` +
-      `${offlineRate.toFixed(2)}${DELIMITER}` +
-      `${successRate.toFixed(2)}${DELIMITER}` +
-      `${failureRate.toFixed(2)}${DELIMITER}`;
-
-     // log it to STDOUT
-    console.log(line);
+    let report = logger.log(
+      min.toLocaleTimeString(),
+      url,
+      cp.length,
+      offlineRate.toFixed(2),
+      failureRate.toFixed(2),
+      successRate.toFixed(2)
+    );
 
     // plug in triggers
-    if (successRate < THRESHOLD) {
-      send(url, line);
+    if (successRate > THRESHOLD) {
+      sms.send(url, report);
     }
   };
 
   // initialize log
-  let d = DELIMITER;
-  console.log(`TIMESTAMP${d}URL${d}SAMPLES${d}OFFLINE RATE (%)${d}SUCCESS RATE (%)${d}FAILURE RATE (%)`);
+  logger.log('TIMESTAMP','URL','SAMPLES','OFFLINE RATE (%)','FAILURE RATE (%)', 'SUCCESS RATE (%)');
 
   // the loop to probe our target URL
   const probe = () => request.get(url, callback);
